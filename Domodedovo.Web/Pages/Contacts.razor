@@ -1,0 +1,60 @@
+﻿@page "/contacts"
+@inject HttpClient Http
+@using Domodedovo.Dto
+
+<PageTitle>Контакты</PageTitle>
+
+<h1 style="text-align: center;">Контакты</h1>
+
+<p style="text-align: center;">Справочник контактов из <a href="https://randomuser.me/">https://randomuser.me/</a>.</p>
+
+@if (_contacts == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    
+    <div>
+    <div class="connection">
+        <select class="toolbar-font">
+            <option selected> По порядку</option>
+            <option>По фамилии</option>
+            <option>По имени</option>
+        </select>
+    </div>
+    <div class="contacts">
+        @foreach (var contact in _contacts)
+            {
+                <div class="contact">
+                    <div class="information">
+                        <div class="informationBlock">
+                            <p class="text">Имя:</p>
+                            <p class="textInformation">@contact.FullName</p>
+                        </div>
+                        <div class="informationBlock">
+                            <p class="text">Email:</p>
+                            <p class="textInformation">@contact.Email</p>
+                        </div>
+                        <div class="informationBlock">
+                            <p class="text">Телефон:</p>
+                            <p class="textInformation">@contact.Phone</p>
+                        </div>
+                    </div>
+                    <div class="photo">
+                        <img src="@contact.PhotoUrl"/>
+                    </div>
+                </div>
+            }
+    </div>
+</div>
+}
+
+@code {
+    private Contact[]? _contacts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _contacts = await Http.GetFromJsonAsync<Contact[]>("Contacts");
+    }
+}
