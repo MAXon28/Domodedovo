@@ -3,7 +3,7 @@
 namespace Domodedovo.DataAccessLayer
 {
     /// <summary>
-    /// 
+    /// Контекст базы данных
     /// </summary>
     public class ApplicationContext : DbContext
     {

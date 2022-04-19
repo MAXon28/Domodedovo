@@ -8,53 +8,350 @@
 
 <p style="text-align: center;">Справочник контактов из <a href="https://randomuser.me/">https://randomuser.me/</a>.</p>
 
-@if (_contacts == null)
-{
-    <p><em>Loading...</em></p>
-}
-else
-{
-    
-    <div>
+<div>
     <div class="connection">
-        <select class="toolbar-font">
-            <option selected> По порядку</option>
-            <option>По фамилии</option>
-            <option>По имени</option>
+        <select class="toolbar-font" @onchange="SelectSort">
+            <option value="0" selected> По порядку</option>
+            <option value="1">По фамилии</option>
+            <option value="2">По имени</option>
         </select>
     </div>
-    <div class="contacts">
-        @foreach (var contact in _contacts)
+
+    @if (ContactsList is null)
+    {
+        <div class="reverse-spinner">
+            <div class="status">Загрузка<span class="status__dot">.</span><span class="status__dot">.</span><span class="status__dot">.</span></div>
+        </div>
+    }
+    else
+    {
+        <div id="contacts" class="contacts">
+            @foreach (var contact in ContactsList)
+                {
+                    <div class="contact">
+                        <div class="information">
+                            <div class="informationBlock">
+                                <p class="text">Имя:</p>
+                                <p class="textInformation">@contact.FullName</p>
+                            </div>
+                            <div class="informationBlock">
+                                <p class="text">Email:</p>
+                                <p class="textInformation">@contact.Email</p>
+                            </div>
+                            <div class="informationBlock">
+                                <p class="text">Телефон:</p>
+                                <p class="textInformation">@contact.Phone</p>
+                            </div>
+                        </div>
+                        <div class="photo">
+                            <img src="@contact.PhotoUrl"/>
+                        </div>
+                    </div>
+                }
+        </div>
+    }
+    @if (_pagesCount > 1)
+    {
+        <div class="pagesBlock">
+            <button class="pageNumber pageNumberNotActive" @onclick="OpenFirstPage" style="width: 128px;">В начало</button>
+            <button class="pageNumber @ButtonsSettings[1].StatusClassName" @onclick="(args)=> OpenPage(args, 1)">@ButtonsSettings[1].CurrentNumber</button>
+            <button class="pageNumber @ButtonsSettings[2].StatusClassName" @onclick="(args)=> OpenPage(args, 2)">@ButtonsSettings[2].CurrentNumber</button>
+            <button class="pageNumber @ButtonsSettings[3].StatusClassName" @onclick="(args)=> OpenPage(args, 3)">@ButtonsSettings[3].CurrentNumber</button>
+            @if (ButtonsSettings[4] is not null)
             {
-                <div class="contact">
-                    <div class="information">
-                        <div class="informationBlock">
-                            <p class="text">Имя:</p>
-                            <p class="textInformation">@contact.FullName</p>
-                        </div>
-                        <div class="informationBlock">
-                            <p class="text">Email:</p>
-                            <p class="textInformation">@contact.Email</p>
-                        </div>
-                        <div class="informationBlock">
-                            <p class="text">Телефон:</p>
-                            <p class="textInformation">@contact.Phone</p>
-                        </div>
-                    </div>
-                    <div class="photo">
-                        <img src="@contact.PhotoUrl"/>
-                    </div>
-                </div>
+                <button class="pageNumber @ButtonsSettings[4].StatusClassName" @onclick="(args)=> OpenPage(args, 4)">@ButtonsSettings[4].CurrentNumber</button>
             }
-    </div>
+            else
+            {
+                <p class="separator">...</p>
+            }
+            <button class="pageNumber @ButtonsSettings[5].StatusClassName" @onclick="(args)=> OpenPage(args, 5)">@ButtonsSettings[5].CurrentNumber</button>
+            <button class="pageNumber pageNumberNotActive" @onclick="OpenLastPage" style="width: 128px;">В конец</button>
+        </div>
+    }
 </div>
-}
 
 @code {
-    private Contact[]? _contacts;
+    [Parameter]
+    public Contact[]? ContactsList { get; set; }
+
+    [Parameter]
+    public Dictionary<int, PageButtonSettingsViewModel>? ButtonsSettings { get; set; }
+
+    private int _pagesCount = default;
+
+    private int _currentActivePageNumber;
+
+    private int _selectedSort = -1;
 
     protected override async Task OnInitializedAsync()
     {
-        _contacts = await Http.GetFromJsonAsync<Contact[]>("Contacts");
+        ContactsList = await Http.GetFromJsonAsync<Contact[]>("Contacts?pageNumber=1");
+        _pagesCount = await Http.GetFromJsonAsync<int>("Contacts/GetPagesCount");
+
+        if (_pagesCount == default)
+            return;
+
+        ButtonsSettings = new Dictionary<int, PageButtonSettingsViewModel>();
+
+        _currentActivePageNumber = 1;
+
+        if (_pagesCount > 1 && _pagesCount <= 5)
+        {
+            var i = 0;
+            while (i <= _pagesCount)
+            {
+                if (i == 0)
+                    ButtonsSettings.Add(1, new PageButtonSettingsViewModel
+                        {
+                            CurrentNumber = 1,
+                            StatusClassName = "pageNumberActive"
+                        });
+                else
+                    ButtonsSettings.Add(i + 1, new PageButtonSettingsViewModel
+                        {
+                            CurrentNumber = i + 1,
+                            StatusClassName = "pageNumberNotActive"
+                        });
+                i++;
+            }
+            return;
+        }
+
+        if (_pagesCount > 5)
+        {
+            ButtonsSettings.Add(1, new PageButtonSettingsViewModel
+                {
+                    CurrentNumber = 1,
+                    StatusClassName = "pageNumberActive"
+                });
+
+            ButtonsSettings.Add(2, new PageButtonSettingsViewModel
+                {
+                    CurrentNumber = 2,
+                    StatusClassName = "pageNumberNotActive"
+                });
+
+            ButtonsSettings.Add(3, new PageButtonSettingsViewModel
+                {
+                    CurrentNumber = 3,
+                    StatusClassName = "pageNumberNotActive"
+                });
+
+            ButtonsSettings.Add(4, null);
+
+            ButtonsSettings.Add(5, new PageButtonSettingsViewModel
+                {
+                    CurrentNumber = _pagesCount,
+                    StatusClassName = "pageNumberNotActive"
+                });
+        }
+
+    }
+
+    /// <summary>
+    /// Открыть страницу
+    /// </summary>
+    /// <param name="e"></param>
+    /// <param name="buttonSequenceNumber"> Номер нажатой кнопки </param>
+    private async Task OpenPage(MouseEventArgs e, int buttonSequenceNumber)
+    {
+        if (_pagesCount <= 5)
+        {
+            ChangeWithoutUpdatePagesNumber(buttonSequenceNumber);
+        }
+        else
+        {
+            var numbersGap = ButtonsSettings[buttonSequenceNumber].CurrentNumber - ButtonsSettings[_currentActivePageNumber].CurrentNumber;
+
+            if (numbersGap > 0)
+            {
+                if (ButtonsSettings[buttonSequenceNumber].CurrentNumber == 2)
+                {
+                    ChangeWithoutUpdatePagesNumber(buttonSequenceNumber);
+                }
+                else if (_pagesCount - ButtonsSettings[buttonSequenceNumber].CurrentNumber > 4)
+                {
+                    ButtonsSettings[1].CurrentNumber = ButtonsSettings[buttonSequenceNumber].CurrentNumber - 1;
+                    ButtonsSettings[1].StatusClassName = "pageNumberNotActive";
+
+                    ButtonsSettings[2].CurrentNumber = ButtonsSettings[buttonSequenceNumber].CurrentNumber;
+                    ButtonsSettings[2].StatusClassName = "pageNumberActive";
+
+                    ButtonsSettings[3].CurrentNumber = ButtonsSettings[2].CurrentNumber + 1;
+
+                    _currentActivePageNumber = 2;
+
+                }
+                else if (_pagesCount - ButtonsSettings[buttonSequenceNumber].CurrentNumber == 4)
+                {
+                    ChangeWithUpdatePagesNumber(1, buttonSequenceNumber, false);
+                }
+                else if (ButtonsSettings[buttonSequenceNumber].CurrentNumber == _pagesCount)
+                {
+                    await OpenLastPage();
+                    return;
+                }
+                else
+                {
+                    ChangeWithoutUpdatePagesNumber(buttonSequenceNumber);
+                }
+            }
+            else
+            {
+                if (ButtonsSettings[buttonSequenceNumber].CurrentNumber == 1)
+                {
+                    await OpenFirstPage();
+                    return;
+                }
+                else if (_pagesCount - ButtonsSettings[buttonSequenceNumber].CurrentNumber < 4)
+                {
+                    ChangeWithoutUpdatePagesNumber(buttonSequenceNumber);
+                }
+                else if (_pagesCount - ButtonsSettings[buttonSequenceNumber].CurrentNumber == 4)
+                {
+                    ChangeWithUpdatePagesNumber(3, buttonSequenceNumber, true, -2);
+                }
+                else if (ButtonsSettings[buttonSequenceNumber].CurrentNumber == _pagesCount - 5)
+                {
+                    ChangeWithoutUpdatePagesNumber(buttonSequenceNumber);
+                }
+                else
+                {
+                    ButtonsSettings[3].CurrentNumber = ButtonsSettings[buttonSequenceNumber].CurrentNumber + 1;
+                    ButtonsSettings[2].CurrentNumber = ButtonsSettings[buttonSequenceNumber].CurrentNumber;
+                    ButtonsSettings[1].CurrentNumber = ButtonsSettings[2].CurrentNumber - 1;
+                }
+            }
+        }
+        ContactsList = null;
+        ContactsList = _selectedSort > 0 && _selectedSort <= 2 ?
+                    await Http.GetFromJsonAsync<Contact[]>($"Contacts/Sort?pageNumber={ButtonsSettings[_currentActivePageNumber].CurrentNumber}&typeOfSort={_selectedSort}") :
+                    await Http.GetFromJsonAsync<Contact[]>($"Contacts?pageNumber={ButtonsSettings[_currentActivePageNumber].CurrentNumber}");
+    }
+
+    /// <summary>
+    /// Смена активной кнопки без обновления номеров страниц
+    /// </summary>
+    /// <param name="buttonSequenceNumber"> Номер нажатой кнопки </param>
+    private void ChangeWithoutUpdatePagesNumber(int buttonSequenceNumber)
+    {
+        ButtonsSettings[_currentActivePageNumber].StatusClassName = "pageNumberNotActive";
+        ButtonsSettings[buttonSequenceNumber].StatusClassName = "pageNumberActive";
+        _currentActivePageNumber = buttonSequenceNumber;
+    }
+
+    /// <summary>
+    /// Смена активной кнопки с обновлением номеров страниц
+    /// </summary>
+    /// <param name="activePageNumber"> Номер активной кнопки </param>
+    /// <param name="buttonSequenceNumber"> Номер нажатой кнопки </param>
+    /// <param name="haveSeparator"> Есть ли разделитель ("..." - как промежуток между кнопками) </param>
+    /// <param name="forFirstButton"> Значение для вычисление числа в первой кнопке </param>
+    private void ChangeWithUpdatePagesNumber(int activePageNumber, int buttonSequenceNumber, bool haveSeparator, int forFirstButton = 0)
+    {
+        ButtonsSettings[_currentActivePageNumber].StatusClassName = "pageNumberNotActive";
+
+        ButtonsSettings[1].CurrentNumber = ButtonsSettings[buttonSequenceNumber].CurrentNumber + forFirstButton;
+        ButtonsSettings[2].CurrentNumber = ButtonsSettings[1].CurrentNumber + 1;
+        ButtonsSettings[activePageNumber].StatusClassName = "pageNumberActive";
+        ButtonsSettings[3].CurrentNumber = ButtonsSettings[1].CurrentNumber + 2;
+
+        if (haveSeparator)
+            ButtonsSettings[4] = null;
+        else
+            ButtonsSettings[4] = new PageButtonSettingsViewModel
+                        {
+                            CurrentNumber = ButtonsSettings[1].CurrentNumber + 3,
+                            StatusClassName = "pageNumberNotActive"
+                        };
+
+        _currentActivePageNumber = activePageNumber;
+    }
+
+    /// <summary>
+    /// Открыть первую страницу
+    /// </summary>
+    private async Task OpenFirstPage()
+    {
+        ButtonsSettings[1] = new PageButtonSettingsViewModel
+            {
+                CurrentNumber = 1,
+                StatusClassName = "pageNumberActive"
+            };
+
+        ButtonsSettings[2] =  new PageButtonSettingsViewModel
+            {
+                CurrentNumber = 2,
+                StatusClassName = "pageNumberNotActive"
+            };
+
+        ButtonsSettings[3] =  new PageButtonSettingsViewModel
+            {
+                CurrentNumber = 3,
+                StatusClassName = "pageNumberNotActive"
+            };
+
+        ButtonsSettings[4] =  null;
+
+        ButtonsSettings[5].StatusClassName = "pageNumberNotActive";
+
+        _currentActivePageNumber = 1;
+
+        ContactsList = null;
+        ContactsList = _selectedSort > 0 && _selectedSort <= 2 ?
+                    await Http.GetFromJsonAsync<Contact[]>($"Contacts/Sort?pageNumber=1&typeOfSort={_selectedSort}") :
+                    await Http.GetFromJsonAsync<Contact[]>($"Contacts?pageNumber=1");
+    }
+
+    /// <summary>
+    /// Открыть крайнюю страницу
+    /// </summary>
+    private async Task OpenLastPage()
+    {
+        ButtonsSettings[1] = new PageButtonSettingsViewModel
+            {
+                CurrentNumber = _pagesCount - 4,
+                StatusClassName = "pageNumberNotActive"
+            };
+
+        ButtonsSettings[2] =  new PageButtonSettingsViewModel
+            {
+                CurrentNumber = _pagesCount - 3,
+                StatusClassName = "pageNumberNotActive"
+            };
+
+        ButtonsSettings[3] =  new PageButtonSettingsViewModel
+            {
+                CurrentNumber = _pagesCount - 2,
+                StatusClassName = "pageNumberNotActive"
+            };
+
+        ButtonsSettings[4] =  new PageButtonSettingsViewModel
+            {
+                CurrentNumber = _pagesCount - 1,
+                StatusClassName = "pageNumberNotActive"
+            };
+
+        ButtonsSettings[5].StatusClassName = "pageNumberActive";
+
+        _currentActivePageNumber = 5;
+
+        ContactsList = null;
+        ContactsList = _selectedSort > 0 && _selectedSort <= 2 ?
+                    await Http.GetFromJsonAsync<Contact[]>($"Contacts/Sort?pageNumber={_pagesCount}&typeOfSort={_selectedSort}") :
+                    await Http.GetFromJsonAsync<Contact[]>($"Contacts?pageNumber={_pagesCount}");
+    }
+
+    /// <summary>
+    /// Выбрать сортировку
+    /// </summary>
+    /// <param name="e"></param>
+    /// <returns></returns>
+    private async Task SelectSort(ChangeEventArgs e)
+    {
+        _selectedSort = Convert.ToInt32(e.Value);
+        ContactsList = null;
+        ContactsList = await Http.GetFromJsonAsync<Contact[]>($"Contacts/Sort?pageNumber={ButtonsSettings[_currentActivePageNumber].CurrentNumber}&typeOfSort={_selectedSort}");
     }
 }

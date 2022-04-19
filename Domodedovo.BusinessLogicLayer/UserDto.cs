@@ -8,11 +8,6 @@ namespace Domodedovo.BusinessLogicLayer
     public class UserDto
     {
         /// <summary>
-        /// Идентификатор пользователя
-        /// </summary>
-        public int Id { get; set; }
-
-        /// <summary>
         /// Имя пользователя
         /// </summary>
         public string UserName { get; set; }

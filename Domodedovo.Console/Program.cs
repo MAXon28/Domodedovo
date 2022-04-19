@@ -5,6 +5,9 @@ namespace Domodedovo.ConsoleApp
 {
     public class Program
     {
+        /// <summary>
+        /// Сервис пользователя
+        /// </summary>
         private static IUserService _userService = new UserService();
 
         public static void Main()
@@ -26,7 +29,7 @@ namespace Domodedovo.ConsoleApp
                 PhotoUrl = user.PhotoInformation.LargePhotoUrl
             });
 
-            _userService.AddUser(usersDto);
+            _userService.AddUsers(usersDto);
 
             Console.WriteLine("Рандомные пользователи загружены в базу данных.");
         }
